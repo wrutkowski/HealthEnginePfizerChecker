@@ -5,21 +5,28 @@ import AppKit
 struct Jab: ParsableCommand {
     static let dateFormat = "yyyy-MM-dd HH:mm"
     
-    @Option(name: [.customShort("d"), .long], help: "Notify about appointments before given date, format: \(dateFormat)")
-    var beforeDate: String
-
     @Option(name: [.customShort("P"), .long], help: "Practice ID.")
     var practiceId: Int
+
+    @Option(name: [.customShort("d"), .long], help: "Notify about appointments before given date, format: \(dateFormat)")
+    var beforeDate: String?
     
     @Option(name: .shortAndLong, help: "Period of checks in minutes.")
     var period: Int = 15
 
     mutating func run() throws {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = Self.dateFormat
-        guard let beforeDate = dateFormatter.date(from: self.beforeDate) else {
-            fatalError("Incorrect date format. Expected format: \(Self.dateFormat)")
+        let beforeDate: Date?
+        if let beforeDateString = self.beforeDate {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = Self.dateFormat
+            guard let beforeDateParsed = dateFormatter.date(from: beforeDateString) else {
+                fatalError("Incorrect date format. Expected format: \(Self.dateFormat)")
+            }
+            beforeDate = beforeDateParsed
+        } else {
+            beforeDate = nil
         }
+        
         let timeInterval = TimeInterval(period * 60)
         let practiceId = self.practiceId
         let timer = Timer(timeInterval: timeInterval, repeats: true) { _ in
@@ -59,12 +66,14 @@ struct Jab: ParsableCommand {
                         return
                     }
                     Log.info("Found earliest appointment: \(earliestDate.formattedDate)")
-                    if earliestDate.date < beforeDate {
+                    if earliestDate.date < beforeDate ?? Date.distantFuture {
                         Log.info("---------------------------------------------")
                         Log.info("            EARLIER DATE AVAILABLE")
                         Log.info("               \(earliestDate.formattedDate)")
                         Log.info("---------------------------------------------")
-                        Log.info("\n--> Book at: https://healthengine.com.au/v2/appointment/book_widget/\(practiceId)/COVID-19%20Vaccinations?covaxEligibilityChecked=true#appointment-selection\n")
+                        Log.info("")
+                        Log.info("--> Book at: https://healthengine.com.au/v2/appointment/book_widget/\(practiceId)/COVID-19%20Vaccinations?covaxEligibilityChecked=true#appointment-selection")
+                        Log.info("")
                         while true {
                             NSSound.beep()
                             Thread.sleep(forTimeInterval: 0.5)
